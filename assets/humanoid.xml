@@ -1,0 +1,103 @@
+<mujoco model="humanoid">
+  <compiler angle="radian"/>
+  <option timestep="0.002" integrator="implicitfast"/>
+  <visual><global offwidth="1600" offheight="1000"/></visual>
+  <default><joint damping="0.4" armature="0.01" limited="true" range="-1.5 1.5"/><geom density="500" friction="0.9 0.01 0.001"/><motor ctrllimited="true" ctrlrange="-40 40"/></default>
+  <worldbody>
+    <light pos="0 -2 4" dir="0 0 -1"/>
+    <geom name="floor" type="plane" size="5 5 0.1" rgba="0.20 0.24 0.29 1"/>
+    <body name="base" pos="0 0 0.85">
+      <freejoint name="root"/>
+      <geom type="box" size="0.17 0.12 0.09" rgba="0.2 0.55 0.85 1"/>
+      <body name="leg1_link1" pos="0 -0.17 -0.07">
+        <joint name="leg1_joint1" axis="1 0 0"/>
+        <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+        <body name="leg1_link2" pos="0 0 -0.09">
+          <joint name="leg1_joint2" axis="0 1 0"/>
+          <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+          <body name="leg1_link3" pos="0 0 -0.09">
+            <joint name="leg1_joint3" axis="0 1 0"/>
+            <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+            <body name="leg1_link4" pos="0 0 -0.09">
+              <joint name="leg1_joint4" axis="0 1 0"/>
+              <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+              <body name="leg1_link5" pos="0 0 -0.09">
+                <joint name="leg1_joint5" axis="0 1 0"/>
+                <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+                <body name="leg1_foot" pos="0 0 -0.09">
+                  <joint name="leg1_joint6" axis="0 1 0"/>
+                  <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="leg2_link1" pos="0 0.17 -0.07">
+        <joint name="leg2_joint1" axis="1 0 0"/>
+        <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+        <body name="leg2_link2" pos="0 0 -0.09">
+          <joint name="leg2_joint2" axis="0 1 0"/>
+          <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+          <body name="leg2_link3" pos="0 0 -0.09">
+            <joint name="leg2_joint3" axis="0 1 0"/>
+            <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+            <body name="leg2_link4" pos="0 0 -0.09">
+              <joint name="leg2_joint4" axis="0 1 0"/>
+              <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+              <body name="leg2_link5" pos="0 0 -0.09">
+                <joint name="leg2_joint5" axis="0 1 0"/>
+                <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+                <body name="leg2_foot" pos="0 0 -0.09">
+                  <joint name="leg2_joint6" axis="0 1 0"/>
+                  <geom type="capsule" fromto="0 0 0 0 0 -0.09" size="0.025" rgba="0.7 0.75 0.8 1"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="torso" pos="0 0 0.12"><joint name="torso_yaw" axis="0 0 1"/><geom type="box" size="0.13 0.09 0.15"/>
+        <body name="left_arm_joint1_link" pos="0 -0.2 0.1"><joint name="left_arm_joint1" axis="0 1 0"/><geom type="capsule" fromto="0 0 0 0 0 -.1" size="0.02"/>
+        <body name="left_arm_joint2_link" pos="0 0 -0.1"><joint name="left_arm_joint2" axis="0 1 0"/><geom type="capsule" fromto="0 0 0 0 0 -.1" size="0.02"/>
+        <body name="left_arm_joint3_link" pos="0 0 -0.1"><joint name="left_arm_joint3" axis="0 1 0"/><geom type="capsule" fromto="0 0 0 0 0 -.1" size="0.02"/>
+        <body name="left_arm_joint4_link" pos="0 0 -0.1"><joint name="left_arm_joint4" axis="0 1 0"/><geom type="capsule" fromto="0 0 0 0 0 -.1" size="0.02"/>
+        </body>
+        </body>
+        </body>
+        </body>
+        <body name="right_arm_joint1_link" pos="0 0.2 0.1"><joint name="right_arm_joint1" axis="0 1 0"/><geom type="capsule" fromto="0 0 0 0 0 -.1" size="0.02"/>
+        <body name="right_arm_joint2_link" pos="0 0 -0.1"><joint name="right_arm_joint2" axis="0 1 0"/><geom type="capsule" fromto="0 0 0 0 0 -.1" size="0.02"/>
+        <body name="right_arm_joint3_link" pos="0 0 -0.1"><joint name="right_arm_joint3" axis="0 1 0"/><geom type="capsule" fromto="0 0 0 0 0 -.1" size="0.02"/>
+        <body name="right_arm_joint4_link" pos="0 0 -0.1"><joint name="right_arm_joint4" axis="0 1 0"/><geom type="capsule" fromto="0 0 0 0 0 -.1" size="0.02"/>
+        </body>
+        </body>
+        </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="leg1_joint1_motor" joint="leg1_joint1"/>
+    <motor name="leg1_joint2_motor" joint="leg1_joint2"/>
+    <motor name="leg1_joint3_motor" joint="leg1_joint3"/>
+    <motor name="leg1_joint4_motor" joint="leg1_joint4"/>
+    <motor name="leg1_joint5_motor" joint="leg1_joint5"/>
+    <motor name="leg1_joint6_motor" joint="leg1_joint6"/>
+    <motor name="leg2_joint1_motor" joint="leg2_joint1"/>
+    <motor name="leg2_joint2_motor" joint="leg2_joint2"/>
+    <motor name="leg2_joint3_motor" joint="leg2_joint3"/>
+    <motor name="leg2_joint4_motor" joint="leg2_joint4"/>
+    <motor name="leg2_joint5_motor" joint="leg2_joint5"/>
+    <motor name="leg2_joint6_motor" joint="leg2_joint6"/>
+    <motor name="torso_yaw_motor" joint="torso_yaw"/>
+    <motor name="left_arm_joint1_motor" joint="left_arm_joint1"/>
+    <motor name="left_arm_joint2_motor" joint="left_arm_joint2"/>
+    <motor name="left_arm_joint3_motor" joint="left_arm_joint3"/>
+    <motor name="left_arm_joint4_motor" joint="left_arm_joint4"/>
+    <motor name="right_arm_joint1_motor" joint="right_arm_joint1"/>
+    <motor name="right_arm_joint2_motor" joint="right_arm_joint2"/>
+    <motor name="right_arm_joint3_motor" joint="right_arm_joint3"/>
+    <motor name="right_arm_joint4_motor" joint="right_arm_joint4"/>
+  </actuator>
+</mujoco>

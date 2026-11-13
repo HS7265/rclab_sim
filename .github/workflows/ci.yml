@@ -1,0 +1,32 @@
+name: C++ simulator
+on: [push, pull_request]
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    env:
+      MUJOCO_VERSION: 3.11.0
+    steps:
+      - uses: actions/checkout@v4
+      - name: System dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libglfw3-dev libgl1-mesa-dev nlohmann-json3-dev fonts-noto-cjk xvfb
+      - name: MuJoCo
+        run: |
+          curl -L --fail "https://github.com/google-deepmind/mujoco/releases/download/${MUJOCO_VERSION}/mujoco-${MUJOCO_VERSION}-linux-x86_64.tar.gz" -o "$RUNNER_TEMP/mujoco.tar.gz"
+          tar -xzf "$RUNNER_TEMP/mujoco.tar.gz" -C "$RUNNER_TEMP"
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMUJOCO_ROOT="$RUNNER_TEMP/mujoco-${MUJOCO_VERSION}"
+          cmake --build build -j2
+      - name: Core tests
+        run: ctest --test-dir build --output-on-failure
+      - name: GUI interaction test
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" ./build/rclab_sim --robot profiles/hexapod.json --self-test --screenshot build/ci-gui.ppm
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: gui-screenshot
+          path: build/ci-gui.ppm

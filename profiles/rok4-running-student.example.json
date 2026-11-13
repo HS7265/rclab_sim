@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "name": "ROK-4 Running student (external assets)",
+  "model": "/path/to/rok_4_running/training/sim/rok4_mujoco_sim/model/rok4/xml/rok4_scene_mimic.xml",
+  "base_body": "robot/Base_Link",
+  "control_dt": 0.01,
+  "suspension": {
+    "enabled": false,
+    "height": 1.3,
+    "quat": [
+      0.9999373555183411,
+      -4.58489825022257e-19,
+      0.011194631457328796,
+      5.1329465065756374e-21
+    ]
+  },
+  "joint_defaults": {
+    "kp": 20,
+    "kd": 2
+  },
+  "groups": [
+    {
+      "name": "Left leg",
+      "joints": [
+        "robot/L_Hip_Yaw_Joint",
+        "robot/L_Hip_Roll_Joint",
+        "robot/L_Hip_Pitch_Joint",
+        "robot/L_Knee_Pitch_Joint",
+        "robot/L_Ankle_Pitch_Joint",
+        "robot/L_Ankle_Roll_Joint"
+      ]
+    },
+    {
+      "name": "Right leg",
+      "joints": [
+        "robot/R_Hip_Yaw_Joint",
+        "robot/R_Hip_Roll_Joint",
+        "robot/R_Hip_Pitch_Joint",
+        "robot/R_Knee_Pitch_Joint",
+        "robot/R_Ankle_Pitch_Joint",
+        "robot/R_Ankle_Roll_Joint"
+      ]
+    },
+    {
+      "name": "Torso",
+      "joints": [
+        "robot/Torso_Yaw_Joint"
+      ]
+    },
+    {
+      "name": "Left arm",
+      "joints": [
+        "robot/LSP_Joint",
+        "robot/LSR_Joint",
+        "robot/LSY_Joint",
+        "robot/LEP_Joint"
+      ]
+    },
+    {
+      "name": "Right arm",
+      "joints": [
+        "robot/RSP_Joint",
+        "robot/RSR_Joint",
+        "robot/RSY_Joint",
+        "robot/REP_Joint"
+      ]
+    }
+  ],
+  "contact_bodies": [
+    "robot/L_Foot_Link",
+    "robot/R_Foot_Link"
+  ],
+  "controller": "passive",
+  "control_stack": "rok4_running_student",
+  "command_mode": "run_stop",
+  "manual_joint_control": false,
+  "extension": {
+    "bundle": "/path/to/rok_4_running/training/exports/run/onnx_student_25396_s24_round400",
+    "lag_substeps": 1,
+    "full_policy_diagnostics": false
+  },
+  "command": [
+    0,
+    0,
+    0
+  ]
+}

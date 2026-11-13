@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "name": "biped",
+  "model": "../assets/biped.xml",
+  "base_body": "base",
+  "controller": "pd",
+  "adapter": "direct_motor",
+  "control_dt": 0.002,
+  "suspension": {
+    "enabled": true,
+    "height": 0.95,
+    "quat": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  "joint_defaults": {
+    "kp": 30,
+    "kd": 2
+  },
+  "groups": [
+    {
+      "name": "Leg 1",
+      "joints": [
+        "leg1_joint1",
+        "leg1_joint2",
+        "leg1_joint3"
+      ]
+    },
+    {
+      "name": "Leg 2",
+      "joints": [
+        "leg2_joint1",
+        "leg2_joint2",
+        "leg2_joint3"
+      ]
+    }
+  ],
+  "contact_bodies": [
+    "leg1_foot",
+    "leg2_foot"
+  ],
+  "recording": {
+    "seconds": 120,
+    "max_mib": 256
+  }
+}

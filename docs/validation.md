@@ -1,0 +1,94 @@
+# 검증 기록 — 2026-11-13
+
+## 최신 GUI·기록 목록·배포 점검
+
+- 창 제목: `RCLab | robot simulator`. GUI는 한글과 시스템 한글 글꼴을 사용한다.
+- ROK-4 및 6족 실제 GUI 검사: 저장된 기록 펼치기 → 자동 목록 생성 → 파일 클릭 → 호환성 검사 후 재생 데이터 복원 통과.
+- 기록 목록 단위 검사: 최신순 정렬, `.rclog` 필터, 정보 파일 누락 구분, 없는 폴더/빈 폴더/잘못된 폴더 경로 처리 통과.
+- 같은 GUI 검사에서 고정 패널, X축 확대/Y축 자동 범위, 그래프/3D 동기화, 방향키·Space, 입력칸 편집 중 단축키 차단, 커서 좌표 단위와 한글 glyph 확인도 통과.
+- 기본 및 외부 모델 CTest 7/7 통과. ONNX·GUI 없는 별도 Release 빌드와 CTest 5/5 통과.
+- 배포 파일은 소스·공개 프로필·자체 제작 XML·문서·CI 설정으로 한정한다. 빌드·연구실 모델/정책·실험 기록·개인 설정·작업 일지는 제외하고, 개인 절대 경로와 인증 문자열 미포함을 확인했다.
+
+## 환경
+
+- Ubuntu 22.04, GCC 11.4.0, CMake 3.22.1, MuJoCo 3.11.0.
+- AMD Ryzen 7 2700X, 8코어/16스레드.
+- GLFW 3.3.6, ImGui 1.89.9, ImPlot 0.16, nlohmann/json 3.10.5.
+- GUI는 X11에서 OpenGL compatibility context로 렌더링했다. 자동 검사는 외부 마우스 입력 간섭을 피하는 숨김 창과 합성 ImGui 입력을 사용했다.
+
+## 빌드·자동 검사
+
+Release 빌드 성공. 다음 검사에서 **7/7 통과**, 최종 실행 시간 5.41초였다.
+
+```bash
+cmake --build build -j2
+ctest --test-dir build --output-on-failure
+```
+
+기본 CTest는 `core`, `model_biped`, `model_quadruped`, `model_hexapod`, `model_humanoid`의 5개다. 로컬 외부 모델 경로를 CMake의 `RCLAB_RUBI_MODEL`·`RCLAB_ROK4_MODEL`에 지정해 `external_rubi`, `external_rok4`를 추가했다.
+
+| 검사 | 확인한 동작 |
+|---|---|
+| 자체 제작 모델 | 지원 제어 축 6/12/18/21개, qpos/dof 주소, 고정 높이 오차 5mm 이내, 해제 후 낙하 |
+| 시점 정렬 | 0.01초에서 바뀌는 목표, 같은 상태의 PD 힘, 목표 그래프와 저장 목표 일치 |
+| 기록 | 바이너리 왕복 값 일치, 시간·메모리 한도, 덮어쓰기 거부, 모델 불일치·손상 거부 |
+| 재생 | 과거 상태 표시 중 적분하지 않음, 원본 live integration state 보존 |
+| 모델 예외 | 로봇 앞에 있는 자유 물체, slide/ball/free, 음수 gear·입력 제한, 지원 불가 서보 |
+| 설정 오류 | 없는 몸통/관절/모델, 정수배가 아닌 제어 주기 거부 |
+| worker | 기록·정지·단일 물리 스텝, 외란 힘 적용·해제 |
+| RUBI·ROK-4 | 몸통/관절 주소, 지원 축 6/21개, 공중 고정·해제, 저장·다른 모델 인스턴스로 재개방 |
+
+두 외부 모델은 연구실의 RUBI `rubi.xml`, ROK-4 `rok_4_v4_flat.xml`을 사용했다. 원본 모델이나 메시를 이 저장소로 복사하지 않았다.
+
+## GUI 상호작용
+
+자체 제작 2족·4족·6족·휴머노이드와 RUBI에서 다음 형태의 검사를 실행했고 모두 종료 코드 0이었다. ROK-4는 아래 60초 검사에 같은 상호작용 검사를 포함했다.
+
+```bash
+./build/rclab_sim --robot profiles/hexapod.json --self-test \
+  --screenshot build/hexapod-final.ppm
+```
+
+모든 경우에 다음 결과가 `true`였다.
+
+- `graph_click_selects_sample`: 실제 클릭 픽셀에 대응하는 시간의 최근접 표본 선택.
+- `camera_moves_while_time_frozen`: 카메라 드래그 중 기록 시간 고정.
+- `replayed_base_matches_record`: 기록된 몸통 위치와 복원된 3D 위치 일치.
+
+프레임 이미지를 열어 로봇 표시, 부위별 그룹, 목표값/단위, 그래프 커서·시각을 확인했다. 카메라 초기 거리에는 전체 장면이 아닌 로봇 하위 트리의 크기를 사용한다.
+
+추가로 `profiles/sine.example.json`을 사용한 headless 프로세스에서 0.2초 기록을 저장하고, 별도 GUI 프로세스의 `--open`으로 불러왔다. 파일 호환성 검사와 GUI self-test 모두 종료 코드 0이었다. 프로필 JSON 구문, 문서의 상대 링크, C++ 포맷 검사도 통과했으며 소스·프로필·문서에 개인 절대 경로가 없는 것을 확인했다.
+
+## ROK-4 60초 GUI 측정
+
+외부 모델 경로를 `ROK4_XML`로 지정한 뒤 다음 명령으로 측정했다.
+
+```bash
+./build/rclab_sim --robot profiles/rok4.example.json --model "$ROK4_XML" \
+  --benchmark-seconds 60 --screenshot build/rok4-final.ppm
+```
+
+| 항목 | 최종 측정 |
+|---|---:|
+| 모델 물리 간격 | 4ms |
+| 시뮬레이션 시간 | 60.020초 |
+| 기록 물리 표본 | 15,005 |
+| GUI 렌더링 프레임 | 3,605 |
+| 평균 스텝 계산 시간 | 0.688774ms |
+| 최대 스텝 계산 시간 | 2.453287ms |
+| 마감 초과 | 1회 / 15,005스텝 |
+| 실시간 배율 | 1.000108 |
+| 종료 코드 | 0 |
+
+기록·실시간 그래프·3D 렌더링을 켜고 측정했다. 측정 후 그래프 클릭의 요청 시간은 29.879633515초, 선택 표본은 29.880000000초였다. 시간 차이는 약 0.3665ms이며 카메라를 움직이는 동안 선택 시각이 유지됐다. 모든 상호작용 검사와 `benchmark_duration_met`가 `true`였다.
+
+이 수치는 공통 PD 자세 제어와 기록의 측정이다. **ROK-4 보행 정책·특수 모터 변환의 실행 성능을 나타내지 않는다.** 계산 최대 시간이 물리 간격보다 짧아도 벽시계 마감 초과가 발생할 수 있다. 이번 1회의 지연 원인은 별도 프로파일링하지 않았다.
+
+## 해결한 검증 장애와 남은 범위
+
+- 로컬 SDK의 `libmujoco.so.3.11.0` SONAME 링크 누락으로 최초 CTest가 실행되지 않았다. SDK를 수정하지 않고 빌드 디렉터리에 링크를 만드는 방식으로 해결했다.
+- OpenGL core profile에서는 MuJoCo 렌더러 초기화가 실패했다. compatibility profile을 사용해 해결했다.
+- 자동 마우스 입력의 release 위치, 긴 기록의 픽셀↔표본 정밀도, 실제 데스크톱 입력 간섭을 각각 분리해 검사했다. 최종 검사는 클릭 픽셀의 시간에 대한 최근접 표본을 확인한다.
+- 외란 검사에서는 MuJoCo 3.11의 선택점 기준 `refselpos`를 사용해 힘 적용을 검증했다.
+- GitHub Actions 파일을 작성하고 공식 MuJoCo 다운로드 URL의 HTTP 200을 확인했다. 원격 Actions 실행은 아직 수행하지 않았다.
+- 하드 실시간, 보행 정책, 특수 구동기, 기존 NPZ/HTML 입력, 과거 시점에서 새 실험 분기는 이번 검증 범위가 아니다.

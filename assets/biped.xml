@@ -1,0 +1,46 @@
+<mujoco model="biped">
+  <compiler angle="radian"/>
+  <option timestep="0.002" integrator="implicitfast"/>
+  <visual><global offwidth="1600" offheight="1000"/></visual>
+  <default><joint damping="0.4" armature="0.01" limited="true" range="-1.5 1.5"/><geom density="500" friction="0.9 0.01 0.001"/><motor ctrllimited="true" ctrlrange="-40 40"/></default>
+  <worldbody>
+    <light pos="0 -2 4" dir="0 0 -1"/>
+    <geom name="floor" type="plane" size="5 5 0.1" rgba="0.20 0.24 0.29 1"/>
+    <body name="base" pos="0 0 0.85">
+      <freejoint name="root"/>
+      <geom type="box" size="0.17 0.12 0.09" rgba="0.2 0.55 0.85 1"/>
+      <body name="leg1_link1" pos="0 -0.17 -0.07">
+        <joint name="leg1_joint1" axis="1 0 0"/>
+        <geom type="capsule" fromto="0 0 0 0 0 -0.16" size="0.025" rgba="0.7 0.75 0.8 1"/>
+        <body name="leg1_link2" pos="0 0 -0.16">
+          <joint name="leg1_joint2" axis="0 1 0"/>
+          <geom type="capsule" fromto="0 0 0 0 0 -0.16" size="0.025" rgba="0.7 0.75 0.8 1"/>
+          <body name="leg1_foot" pos="0 0 -0.16">
+            <joint name="leg1_joint3" axis="0 1 0"/>
+            <geom type="capsule" fromto="0 0 0 0 0 -0.16" size="0.025" rgba="0.7 0.75 0.8 1"/>
+          </body>
+        </body>
+      </body>
+      <body name="leg2_link1" pos="0 0.17 -0.07">
+        <joint name="leg2_joint1" axis="1 0 0"/>
+        <geom type="capsule" fromto="0 0 0 0 0 -0.16" size="0.025" rgba="0.7 0.75 0.8 1"/>
+        <body name="leg2_link2" pos="0 0 -0.16">
+          <joint name="leg2_joint2" axis="0 1 0"/>
+          <geom type="capsule" fromto="0 0 0 0 0 -0.16" size="0.025" rgba="0.7 0.75 0.8 1"/>
+          <body name="leg2_foot" pos="0 0 -0.16">
+            <joint name="leg2_joint3" axis="0 1 0"/>
+            <geom type="capsule" fromto="0 0 0 0 0 -0.16" size="0.025" rgba="0.7 0.75 0.8 1"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="leg1_joint1_motor" joint="leg1_joint1"/>
+    <motor name="leg1_joint2_motor" joint="leg1_joint2"/>
+    <motor name="leg1_joint3_motor" joint="leg1_joint3"/>
+    <motor name="leg2_joint1_motor" joint="leg2_joint1"/>
+    <motor name="leg2_joint2_motor" joint="leg2_joint2"/>
+    <motor name="leg2_joint3_motor" joint="leg2_joint3"/>
+  </actuator>
+</mujoco>

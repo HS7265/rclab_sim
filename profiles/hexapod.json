@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "name": "hexapod",
+  "model": "../assets/hexapod.xml",
+  "base_body": "base",
+  "controller": "pd",
+  "adapter": "direct_motor",
+  "control_dt": 0.002,
+  "suspension": {
+    "enabled": true,
+    "height": 0.95,
+    "quat": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  "joint_defaults": {
+    "kp": 30,
+    "kd": 2
+  },
+  "groups": [
+    {
+      "name": "Leg 1",
+      "joints": [
+        "leg1_joint1",
+        "leg1_joint2",
+        "leg1_joint3"
+      ]
+    },
+    {
+      "name": "Leg 2",
+      "joints": [
+        "leg2_joint1",
+        "leg2_joint2",
+        "leg2_joint3"
+      ]
+    },
+    {
+      "name": "Leg 3",
+      "joints": [
+        "leg3_joint1",
+        "leg3_joint2",
+        "leg3_joint3"
+      ]
+    },
+    {
+      "name": "Leg 4",
+      "joints": [
+        "leg4_joint1",
+        "leg4_joint2",
+        "leg4_joint3"
+      ]
+    },
+    {
+      "name": "Leg 5",
+      "joints": [
+        "leg5_joint1",
+        "leg5_joint2",
+        "leg5_joint3"
+      ]
+    },
+    {
+      "name": "Leg 6",
+      "joints": [
+        "leg6_joint1",
+        "leg6_joint2",
+        "leg6_joint3"
+      ]
+    }
+  ],
+  "contact_bodies": [
+    "leg1_foot",
+    "leg2_foot",
+    "leg3_foot",
+    "leg4_foot",
+    "leg5_foot",
+    "leg6_foot"
+  ],
+  "recording": {
+    "seconds": 120,
+    "max_mib": 256
+  }
+}

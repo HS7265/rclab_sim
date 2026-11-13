@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "name": "RUBI",
+  "model": "../models/rubi.xml",
+  "base_body": "BODY",
+  "control_dt": 0.002,
+  "suspension": {
+    "enabled": true,
+    "height": 1.0,
+    "quat": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  "joint_defaults": {
+    "kp": 20,
+    "kd": 2
+  },
+  "groups": [
+    {
+      "name": "Left leg",
+      "joints": [
+        "L_HR_JOINT",
+        "L_HP_JOINT",
+        "L_KN_JOINT"
+      ]
+    },
+    {
+      "name": "Right leg",
+      "joints": [
+        "R_HR_JOINT",
+        "R_HP_JOINT",
+        "R_KN_JOINT"
+      ]
+    }
+  ]
+}

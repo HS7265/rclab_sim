@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "name": "ROK4",
+  "model": "../models/rok4.xml",
+  "base_body": "Base_Link",
+  "control_dt": 0.004,
+  "suspension": {
+    "enabled": true,
+    "height": 1.3,
+    "quat": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  "joint_defaults": {
+    "kp": 20,
+    "kd": 2
+  },
+  "groups": [
+    {
+      "name": "Left leg",
+      "joints": [
+        "L_Hip_Yaw_Joint",
+        "L_Hip_Roll_Joint",
+        "L_Hip_Pitch_Joint",
+        "L_Knee_Pitch_Joint",
+        "L_Ankle_Pitch_Joint",
+        "L_Ankle_Roll_Joint"
+      ]
+    },
+    {
+      "name": "Right leg",
+      "joints": [
+        "R_Hip_Yaw_Joint",
+        "R_Hip_Roll_Joint",
+        "R_Hip_Pitch_Joint",
+        "R_Knee_Pitch_Joint",
+        "R_Ankle_Pitch_Joint",
+        "R_Ankle_Roll_Joint"
+      ]
+    },
+    {
+      "name": "Torso",
+      "joints": [
+        "Torso_Yaw_Joint"
+      ]
+    },
+    {
+      "name": "Left arm",
+      "joints": [
+        "LSP_Joint",
+        "LSR_Joint",
+        "LSY_Joint",
+        "LEP_Joint"
+      ]
+    },
+    {
+      "name": "Right arm",
+      "joints": [
+        "RSP_Joint",
+        "RSR_Joint",
+        "RSY_Joint",
+        "REP_Joint"
+      ]
+    }
+  ],
+  "contact_bodies": [
+    "L_Foot_Link",
+    "R_Foot_Link"
+  ]
+}
