@@ -1,8 +1,10 @@
 #include <unistd.h>
 
 #include <cmath>
+#include <cstring>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <thread>
 
 #include "rclab/runner.hpp"
@@ -131,7 +133,83 @@ void recordings() {
     require(std::string(error.what()) == "기록 파일을 찾을 수 없습니다. 경로를 확인해 주세요.",
             "missing recording has actionable Korean message");
   }
-  require(loaded.rows == ep.rows, "binary exact roundtrip");
+  require(loaded.rows.size() == ep.rows.size() &&
+              std::memcmp(loaded.rows.data(), ep.rows.data(), ep.rows.size() * sizeof(double)) == 0,
+          "compressed bit-exact roundtrip");
+  const size_t raw_bytes = ep.rows.size() * sizeof(double);
+  require(std::filesystem::file_size(file) < 24 + raw_bytes, "compression reduces fixture size");
+  rejects([&] { rclab::Episode::load(file, s, raw_bytes - 1); },
+          "memory limit applies to decoded size");
+  auto metadata = Json::parse(std::ifstream(file.string() + ".json"));
+  require(metadata.at("storage").at("codec") == "zstd", "compressed storage metadata");
+  std::ifstream bytes(file, std::ios::binary);
+  std::vector<char> payload{std::istreambuf_iterator<char>(bytes), {}};
+  require(std::string(payload.data(), 8) == "RCLOG002", "compressed format header");
+  const auto damaged = scratch / "damaged.rclog";
+  auto write_damaged = [&](const std::vector<char>& data) {
+    std::ofstream out(damaged, std::ios::binary);
+    out.write(data.data(), static_cast<std::streamsize>(data.size()));
+    write_json(damaged.string() + ".json", metadata);
+  };
+  auto bad = payload;
+  bad.pop_back();
+  write_damaged(bad);
+  rejects([&] { rclab::Episode::load(damaged, s); }, "truncated compressed frame");
+  bad = payload;
+  bad.push_back(0);
+  write_damaged(bad);
+  rejects([&] { rclab::Episode::load(damaged, s); }, "trailing compressed bytes");
+  bad = payload;
+  bad.insert(bad.end(), payload.begin() + 24, payload.end());
+  write_damaged(bad);
+  rejects([&] { rclab::Episode::load(damaged, s); }, "concatenated compressed frames");
+  write_damaged(payload);
+  auto wrong = metadata;
+  wrong["storage"]["uncompressed_bytes"] = raw_bytes + 8;
+  write_json(damaged.string() + ".json", wrong);
+  rejects([&] { rclab::Episode::load(damaged, s); }, "decoded length metadata mismatch");
+  wrong = metadata;
+  wrong["checksum_fnv1a64"] = wrong["checksum_fnv1a64"].get<uint64_t>() ^ 1;
+  write_json(damaged.string() + ".json", wrong);
+  rejects([&] { rclab::Episode::load(damaged, s); }, "decoded checksum mismatch");
+  wrong = metadata;
+  wrong["frames"] = std::numeric_limits<uint64_t>::max();
+  bad = payload;
+  uint64_t huge = std::numeric_limits<uint64_t>::max();
+  std::memcpy(bad.data() + 8, &huge, sizeof(huge));
+  write_damaged(bad);
+  write_json(damaged.string() + ".json", wrong);
+  rejects([&] { rclab::Episode::load(damaged, s); }, "oversized decoded header");
+  // 기존 비압축 v1 파일을 직접 만들어 호환성과 압축 재저장을 확인한다.
+  const auto legacy_file = scratch / "legacy.rclog";
+  auto legacy_meta = metadata;
+  legacy_meta.erase("storage");
+  write_json(legacy_file.string() + ".json", legacy_meta);
+  {
+    std::ofstream legacy(legacy_file, std::ios::binary);
+    const uint64_t counts[] = {ep.frames(), ep.stride};
+    legacy.write("RCLOG001", 8);
+    legacy.write(reinterpret_cast<const char*>(counts), sizeof(counts));
+    legacy.write(reinterpret_cast<const char*>(ep.rows.data()), raw_bytes);
+  }
+  auto legacy = rclab::Episode::load(legacy_file, s);
+  require(std::memcmp(legacy.rows.data(), ep.rows.data(), raw_bytes) == 0,
+          "legacy uncompressed bit-exact load");
+  legacy.save(scratch / "converted.rclog");
+  auto converted = rclab::Episode::load(scratch / "converted.rclog", s);
+  require(std::memcmp(converted.rows.data(), ep.rows.data(), raw_bytes) == 0,
+          "legacy to compressed conversion is bit-exact");
+  auto precision = ep;
+  precision.rows[precision.state_size] = -0.0;
+  precision.rows[precision.state_size + 1] = std::nextafter(1.0, 2.0);
+  precision.save(scratch / "precision.rclog");
+  const auto exact = rclab::Episode::load(scratch / "precision.rclog", s);
+  require(std::memcmp(exact.rows.data(), precision.rows.data(), raw_bytes) == 0,
+          "signed zero and float64 precision preserved");
+  std::cout
+      << "PASS compressed/legacy bit-exact roundtrip, conversion, corruption, decoded limits; "
+      << "raw_bytes=" << 24 + raw_bytes << " compressed_bytes=" << std::filesystem::file_size(file)
+      << '\n';
   rejects([&] { ep.save(file); }, "do not overwrite recordings");
   std::vector<double> live(mj_stateSize(s.model(), mjSTATE_INTEGRATION));
   mj_getState(s.model(), s.data(), live.data(), mjSTATE_INTEGRATION);

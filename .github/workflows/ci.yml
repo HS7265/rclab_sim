@@ -10,7 +10,7 @@ jobs:
       - name: System dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libglfw3-dev libgl1-mesa-dev nlohmann-json3-dev fonts-noto-cjk xvfb
+          sudo apt-get install -y cmake build-essential libglfw3-dev libgl1-mesa-dev nlohmann-json3-dev libzstd-dev fonts-noto-cjk xvfb
       - name: MuJoCo
         run: |
           curl -L --fail "https://github.com/google-deepmind/mujoco/releases/download/${MUJOCO_VERSION}/mujoco-${MUJOCO_VERSION}-linux-x86_64.tar.gz" -o "$RUNNER_TEMP/mujoco.tar.gz"

@@ -1,5 +1,7 @@
 #include "rclab/recording.hpp"
 
+#include <zstd.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -10,7 +12,8 @@
 namespace rclab {
 namespace {
 using Json = nlohmann::json;
-constexpr char magic[8] = {'R', 'C', 'L', 'O', 'G', '0', '0', '1'};
+constexpr char legacy_magic[8] = {'R', 'C', 'L', 'O', 'G', '0', '0', '1'};
+constexpr char compressed_magic[8] = {'R', 'C', 'L', 'O', 'G', '0', '0', '2'};
 uint64_t checksum(const std::vector<double>& rows) {
   uint64_t value = 14695981039346656037ULL;
   auto* bytes = reinterpret_cast<const unsigned char*>(rows.data());
@@ -114,14 +117,22 @@ void Episode::save(const std::filesystem::path& path) const {
   document["frames"] = frames();
   document["stride"] = stride;
   document["checksum_fnv1a64"] = checksum(rows);
+  const size_t raw_bytes = rows.size() * sizeof(double);
+  // 백그라운드 저장에서만 압축한다. 물리 스텝과 메모리 내 표본은 변경하지 않는다.
+  std::vector<char> compressed(ZSTD_compressBound(raw_bytes));
+  const size_t compressed_bytes =
+      ZSTD_compress(compressed.data(), compressed.size(), rows.data(), raw_bytes, 3);
+  if (ZSTD_isError(compressed_bytes))
+    throw std::runtime_error("기록 압축 실패: " + std::string(ZSTD_getErrorName(compressed_bytes)));
+  document["storage"] = {
+      {"format_version", 2}, {"codec", "zstd"}, {"uncompressed_bytes", raw_bytes}};
   auto tmp = path.string() + ".tmp", meta_tmp = meta.string() + ".tmp";
   try {
     std::ofstream out(tmp, std::ios::binary);
     const uint64_t counts[2] = {frames(), stride};
-    out.write(magic, sizeof(magic));
+    out.write(compressed_magic, sizeof(compressed_magic));
     out.write(reinterpret_cast<const char*>(counts), sizeof(counts));
-    out.write(reinterpret_cast<const char*>(rows.data()),
-              static_cast<std::streamsize>(rows.size() * sizeof(double)));
+    out.write(compressed.data(), static_cast<std::streamsize>(compressed_bytes));
     out.flush();
     if (!out) throw std::runtime_error("Recording write failed");
     out.close();
@@ -174,16 +185,39 @@ Episode Episode::load(const std::filesystem::path& path, const Simulation& sim, 
   uint64_t counts[2]{};
   input.read(tag, 8);
   input.read(reinterpret_cast<char*>(counts), sizeof(counts));
-  if (!input || std::memcmp(tag, magic, 8) || counts[1] != ep.stride ||
+  const bool compressed = std::memcmp(tag, compressed_magic, 8) == 0;
+  const bool legacy = std::memcmp(tag, legacy_magic, 8) == 0;
+  if (!input || (!compressed && !legacy) || counts[1] != ep.stride ||
       metadata.at("stride") != ep.stride || counts[0] == 0 || metadata.at("frames") != counts[0] ||
       counts[0] > max_bytes / sizeof(double) / ep.stride)
     throw std::runtime_error("Invalid / oversized recording header");
   const size_t elements = static_cast<size_t>(counts[0]) * ep.stride;
-  if (std::filesystem::file_size(path) != 24 + elements * sizeof(double))
-    throw std::runtime_error("Recording length mismatch");
-  ep.rows.resize(elements);
-  input.read(reinterpret_cast<char*>(ep.rows.data()),
-             static_cast<std::streamsize>(elements * sizeof(double)));
+  const size_t raw_bytes = elements * sizeof(double);
+  const auto file_bytes = std::filesystem::file_size(path);
+  if (compressed) {
+    if (!metadata.contains("storage") || metadata["storage"].value("format_version", 0) != 2 ||
+        metadata["storage"].value("codec", "") != "zstd" ||
+        metadata["storage"].at("uncompressed_bytes") != raw_bytes)
+      throw std::runtime_error("압축 기록의 저장 정보가 일치하지 않습니다.");
+    // 헤더에서 복원 용량을 먼저 제한하고, 단일 프레임과 실제 출력 크기를 모두 검사한다.
+    if (file_bytes <= 24 || file_bytes - 24 > ZSTD_compressBound(raw_bytes))
+      throw std::runtime_error("압축 기록의 파일 크기가 올바르지 않습니다.");
+    std::vector<char> payload(static_cast<size_t>(file_bytes - 24));
+    input.read(payload.data(), static_cast<std::streamsize>(payload.size()));
+    const auto frame_bytes = ZSTD_findFrameCompressedSize(payload.data(), payload.size());
+    if (!input || ZSTD_isError(frame_bytes) || frame_bytes != payload.size() ||
+        ZSTD_getFrameContentSize(payload.data(), payload.size()) != raw_bytes)
+      throw std::runtime_error("압축 기록이 손상되었거나 복원 크기가 일치하지 않습니다.");
+    ep.rows.resize(elements);
+    const auto decoded = ZSTD_decompress(ep.rows.data(), raw_bytes, payload.data(), payload.size());
+    if (ZSTD_isError(decoded) || decoded != raw_bytes)
+      throw std::runtime_error("기록 압축을 해제하지 못했습니다.");
+  } else {
+    if (metadata.contains("storage") || file_bytes != 24 + raw_bytes)
+      throw std::runtime_error("Recording length / storage mismatch");
+    ep.rows.resize(elements);
+    input.read(reinterpret_cast<char*>(ep.rows.data()), static_cast<std::streamsize>(raw_bytes));
+  }
   if (!input || checksum(ep.rows) != metadata.at("checksum_fnv1a64").get<uint64_t>())
     throw std::runtime_error("Recording checksum mismatch");
   for (double value : ep.rows)

@@ -144,6 +144,12 @@ struct Gui {
   bool recording = false;
   std::string record_status;
   std::vector<rclab::DiagnosticChannel> channels;
+  struct JointSignals {
+    std::string name;
+    std::array<int, 3> channels;
+  };
+  std::vector<JointSignals> joint_signals;
+  size_t selected_joint = 0;
   std::array<int, 3> selected_channels{0, 1, 2};
   std::future<std::string> save_task;
   std::future<rclab::Episode> load_task;
@@ -277,6 +283,22 @@ struct Gui {
         controls(runner.simulation().controls()),
         initial_controls(controls),
         channels(runner.simulation().channels()) {
+    // 채널 배열 순서 대신 원래 식별자로 토크·속도·위치를 연결한다.
+    for (size_t i = 0; i < channels.size(); ++i) {
+      const auto& name = channels[i].name;
+      const std::string suffix = "/position";
+      if (name.size() < suffix.size() ||
+          name.compare(name.size() - suffix.size(), suffix.size(), suffix))
+        continue;
+      const auto joint = name.substr(0, name.size() - suffix.size());
+      std::array<int, 3> signals{-1, -1, static_cast<int>(i)};
+      for (size_t j = 0; j < channels.size(); ++j) {
+        if (channels[j].name == joint + "/actuation") signals[0] = static_cast<int>(j);
+        if (channels[j].name == joint + "/velocity") signals[1] = static_cast<int>(j);
+      }
+      if (signals[0] >= 0 && signals[1] >= 0) joint_signals.push_back({joint, signals});
+    }
+    if (!joint_signals.empty()) selected_channels = joint_signals.front().channels;
     // 메뉴 표기만 바꾼다. 기존 기록의 채널 식별자와 호환성은 유지한다.
     for (auto& channel : channels) {
       channel.name = channel_label(channel);
@@ -625,6 +647,44 @@ struct Gui {
       }
     ImGui::End();
   }
+  bool compare_sides = true;
+  bool paired_plot_drawn = false;
+  // 구분자가 있는 좌우 이름과 단위가 모두 일치할 때만 비교한다.
+  std::array<int, 2> side_channels(int selected) const {
+    const auto& channel = channels[selected];
+    for (const auto& sides :
+         {std::pair{"L_", "R_"}, std::pair{"left_", "right_"}, std::pair{"Left_", "Right_"}}) {
+      for (int side = 0; side < 2; ++side) {
+        const std::string token = side == 0 ? sides.first : sides.second;
+        size_t pos = channel.name.find(token);
+        if (pos == std::string::npos || (pos != 0 && channel.name[pos - 1] != '/')) continue;
+        auto other = channel.name;
+        other.replace(pos, token.size(), side == 0 ? sides.second : sides.first);
+        for (size_t i = 0; i < channels.size(); ++i)
+          if (channels[i].name == other && channels[i].unit == channel.unit)
+            return side == 0 ? std::array<int, 2>{selected, static_cast<int>(i)}
+                             : std::array<int, 2>{static_cast<int>(i), selected};
+      }
+    }
+    return {selected, -1};
+  }
+  std::array<int, 2> plot_channels(int selected) const {
+    return compare_sides ? side_channels(selected) : std::array<int, 2>{selected, -1};
+  }
+  void draw_signals(const rclab::Episode& episode, int selected) {
+    const auto pair = plot_channels(selected);
+    for (int side = 0; side < 2; ++side) {
+      if (pair[side] < 0) continue;
+      PlotAccess access{&episode, static_cast<size_t>(pair[side])};
+      const bool paired = pair[1] >= 0;
+      if (paired)
+        ImPlot::SetNextLineStyle(side == 0 ? ImVec4(.25f, .55f, 1.f, 1.f)
+                                           : ImVec4(1.f, .55f, .2f, 1.f));
+      ImPlot::PlotLineG(paired ? (side == 0 ? "왼쪽" : "오른쪽") : "기록", point_at, &access,
+                        static_cast<int>(episode.frames()));
+      paired_plot_drawn |= paired;
+    }
+  }
   void graph_panel(int w, int h) {
     ImGui::SetNextWindowPos({w - right_width, 0}, ImGuiCond_Always);
     ImGui::SetNextWindowSize({right_width, static_cast<float>(h)}, ImGuiCond_Always);
@@ -677,6 +737,22 @@ struct Gui {
       }
     }
     recording_library();
+    ImGui::Checkbox("좌우 비교", &compare_sides);
+    if (joint_signals.empty()) {
+      ImGui::TextUnformatted("표시할 단일 축 관절이 없습니다.");
+      ImGui::End();
+      return;
+    }
+    ImGui::SetNextItemWidth(std::max(100.f, ImGui::GetContentRegionAvail().x - 65));
+    if (ImGui::BeginCombo("관절", joint_signals[selected_joint].name.c_str())) {
+      for (size_t i = 0; i < joint_signals.size(); ++i) {
+        if (ImGui::Selectable(joint_signals[i].name.c_str(), selected_joint == i)) {
+          selected_joint = i;
+          selected_channels = joint_signals[i].channels;
+        }
+      }
+      ImGui::EndCombo();
+    }
     if (!message.empty()) {
       ImGui::TextWrapped("%s", message.c_str());
       if (ImGui::SmallButton("알림 닫기")) message.clear();
@@ -695,22 +771,17 @@ struct Gui {
         const float plot_height = std::max(70.f, ImGui::GetContentRegionAvail().y / 3 - 34);
         for (int plot = 0; plot < 3; ++plot) {
           ImGui::PushID(plot);
-          ImGui::SetNextItemWidth(std::max(100.f, ImGui::GetContentRegionAvail().x - 65));
-          if (ImGui::BeginCombo("항목", channels[selected_channels[plot]].name.c_str())) {
-            for (size_t k = 0; k < channels.size(); ++k)
-              if (ImGui::Selectable(channels[k].name.c_str(),
-                                    selected_channels[plot] == static_cast<int>(k)))
-                selected_channels[plot] = k;
-            ImGui::EndCombo();
-          }
+          ImGui::TextUnformatted(
+              plot == 0 ? (channels[selected_channels[0]].unit == "N m" ? "토크" : "힘")
+              : plot == 1 ? (channels[selected_channels[1]].unit == "rad/s" ? "각속도" : "속도")
+                          : "위치");
           if (ImPlot::BeginPlot("##live", {ImGui::GetContentRegionAvail().x, plot_height},
                                 ImPlotFlags_NoMenus | ImPlotFlags_NoMouseText)) {
             ImPlot::SetupAxes("시간 (s)", channels[selected_channels[plot]].unit.c_str(),
                               ImPlotAxisFlags_None,
                               ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_RangeFit);
             ImPlot::SetupAxisLinks(ImAxis_X1, &x_min, &x_max);
-            PlotAccess access{&preview, static_cast<size_t>(selected_channels[plot])};
-            ImPlot::PlotLineG("실시간", point_at, &access, static_cast<int>(preview.frames()));
+            draw_signals(preview, selected_channels[plot]);
             if ((ImPlot::IsPlotHovered() || ImPlot::IsAxisHovered(ImAxis_X1)) &&
                 (ImGui::GetIO().MouseWheel != 0 ||
                  ImGui::IsMouseDragging(ImGuiMouseButton_Middle) ||
@@ -766,15 +837,10 @@ struct Gui {
         ImGui::GetFrameHeightWithSpacing() + ImGui::GetTextLineHeightWithSpacing() + 8;
     for (int plot = 0; plot < 3; ++plot) {
       ImGui::PushID(plot);
-      ImGui::SetNextItemWidth(std::max(100.f, ImGui::GetContentRegionAvail().x - 65));
-      if (ImGui::BeginCombo("항목", channels[selected_channels[plot]].name.c_str())) {
-        for (size_t k = 0; k < channels.size(); ++k)
-          if (ImGui::Selectable(channels[k].name.c_str(),
-                                selected_channels[plot] == static_cast<int>(k))) {
-            selected_channels[plot] = k;
-          }
-        ImGui::EndCombo();
-      }
+      ImGui::TextUnformatted(
+          plot == 0   ? (channels[selected_channels[0]].unit == "N m" ? "토크" : "힘")
+          : plot == 1 ? (channels[selected_channels[1]].unit == "rad/s" ? "각속도" : "속도")
+                      : "위치");
       if (ImPlot::BeginPlot(
               "##signal",
               {ImGui::GetContentRegionAvail().x,
@@ -784,8 +850,7 @@ struct Gui {
         ImPlot::SetupAxes("시간 (s)", channels[selected_channels[plot]].unit.c_str(),
                           ImPlotAxisFlags_None, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_RangeFit);
         ImPlot::SetupAxisLinks(ImAxis_X1, &x_min, &x_max);
-        PlotAccess access{&ep, static_cast<size_t>(selected_channels[plot])};
-        ImPlot::PlotLineG("기록", point_at, &access, static_cast<int>(ep.frames()));
+        draw_signals(ep, selected_channels[plot]);
         double t = replay->data()->time;
         ImPlot::PlotInfLines("선택 시각", &t, 1);
         if (ImPlot::IsPlotHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left) &&
@@ -815,8 +880,13 @@ struct Gui {
         graph_limits[plot] = ImPlot::GetPlotLimits();
         ImPlot::EndPlot();
       }
-      ImGui::Text("값 %.6g %s", ep.value(replay->selected(), selected_channels[plot]),
-                  channels[selected_channels[plot]].unit.c_str());
+      const auto pair = plot_channels(selected_channels[plot]);
+      if (pair[1] >= 0)
+        ImGui::Text("왼쪽 %.6g · 오른쪽 %.6g %s", ep.value(replay->selected(), pair[0]),
+                    ep.value(replay->selected(), pair[1]), channels[pair[0]].unit.c_str());
+      else
+        ImGui::Text("값 %.6g %s", ep.value(replay->selected(), pair[0]),
+                    channels[pair[0]].unit.c_str());
       ImGui::PopID();
     }
     ImGui::End();
@@ -912,6 +982,8 @@ struct Gui {
     load_korean_font();
     ImPlot::CreateContext();
     ImGui::StyleColorsDark();
+    ImPlot::StyleColorsLight();
+    ImPlot::GetStyle().Colors[ImPlotCol_PlotBg] = ImVec4(1, 1, 1, 1);
     if (selftest || benchmark_seconds > 0) ImGui::GetIO().IniFilename = nullptr;
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
@@ -929,6 +1001,23 @@ struct Gui {
     int phase = 0, phase_frame = 0;
     double camera_before = 0, selected_before = 0;
     size_t gui_frames = 0;
+    bool expect_paired_plot = false;
+    if (selftest) {
+      const auto raw = sim().channels();
+      for (size_t i = 0; i < joint_signals.size(); ++i) {
+        const auto& joint = joint_signals[i];
+        if (raw[joint.channels[0]].name != joint.name + "/actuation" ||
+            raw[joint.channels[1]].name != joint.name + "/velocity" ||
+            raw[joint.channels[2]].name != joint.name + "/position")
+          throw std::runtime_error("관절별 그래프 연결 검사 실패");
+        const auto pair = side_channels(joint.channels[0]);
+        if (pair[1] < 0) continue;
+        if (side_channels(pair[1]) != pair) throw std::runtime_error("좌우 채널 매핑 검사 실패");
+        selected_joint = i;
+        selected_channels = joint.channels;
+        expect_paired_plot = true;
+      }
+    }
     nlohmann::json gui_checks;
     bool gui_checks_passed = false;
     std::filesystem::path library_fixture;
@@ -1115,14 +1204,22 @@ struct Gui {
             const auto& limits = graph_limits[plot];
             for (size_t sample = 0; sample < ep.frames(); ++sample)
               if (ep.time(sample) >= limits.X.Min && ep.time(sample) <= limits.X.Max) {
-                double value = ep.value(sample, selected_channels[plot]);
-                minimum = std::min(minimum, value);
-                maximum = std::max(maximum, value);
+                for (int channel : plot_channels(selected_channels[plot])) {
+                  if (channel < 0) continue;
+                  double value = ep.value(sample, channel);
+                  minimum = std::min(minimum, value);
+                  maximum = std::max(maximum, value);
+                }
               }
             auto_y &= std::isfinite(minimum) && limits.Y.Min <= minimum + 1e-7 &&
                       limits.Y.Max >= maximum - 1e-7;
             if (maximum - minimum > 1e-7) auto_y &= limits.Y.Size() < 1.5 * (maximum - minimum);
           }
+          result["joint_selection_links_three_signals"] =
+              !joint_signals.empty() && selected_channels == joint_signals[selected_joint].channels;
+          replay_keys_verified &= result["joint_selection_links_three_signals"].get<bool>();
+          result["bilateral_plot_rendered"] = paired_plot_drawn;
+          replay_keys_verified &= !expect_paired_plot || paired_plot_drawn;
           result["x_zoom_with_visible_y_autofit"] = zoomed && auto_y;
           result["panels_stay_fixed_when_dragged"] = layout_verified;
           result["resize_layout_fills_window"] =

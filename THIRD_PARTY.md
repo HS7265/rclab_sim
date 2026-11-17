@@ -6,6 +6,7 @@
 | Dear ImGui | 1.89.9 | MIT, https://github.com/ocornut/imgui |
 | ImPlot | 0.16 | MIT, https://github.com/epezent/implot |
 | GLFW | 시스템 3.3 이상 | zlib/libpng, https://github.com/glfw/glfw |
+| Zstandard | 시스템 1.4 이상 | BSD-3-Clause 또는 GPL-2.0, https://github.com/facebook/zstd |
 | nlohmann/json | 시스템 3.10 이상 | MIT, https://github.com/nlohmann/json |
 | ONNX Runtime (선택) | 1.22.0 | MIT, https://github.com/microsoft/onnxruntime |
 | OpenSSL (선택) | 시스템 3.0 | Apache-2.0, https://www.openssl.org/ |
